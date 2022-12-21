@@ -1,0 +1,44 @@
+﻿@{
+    ViewData["Title"] = "Login Controller";
+}
+
+@model Identity.MVC.Models.DTO.UserDTO
+
+<form method="post" asp-action="Login">
+    <div class="border p-3">
+        <div class="form-group row">
+            <h2 class="text-black-50 pl-3">Enter Your User Pass</h2>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="form-group row">
+                    <div class="col-4">
+                        <label asp-for="Username"></label>
+                    </div>
+                    <div class="col-4">
+                        <label asp-for="Password"></label>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-4">
+                        <input asp-for="Username" class="form-control" />
+                    </div>
+                    <div class="col-4">
+                        <input asp-for="Password" class="form-control" />
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-8 offset-2 row">
+                        <div class="col">
+                            <input type="submit" class="btn btn-info w-75" value="Login" />
+                        </div>
+                        <div class="col">
+                            <a asp-action="Index" class="btn btn-danger w-75">Back</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</form>
