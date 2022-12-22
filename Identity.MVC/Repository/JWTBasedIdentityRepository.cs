@@ -10,10 +10,10 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Identity.MVC.Repository
 {
-    public class JWTBasedIdentityRepository: IIdentityRepository
+    public class JWTBasedIdentityRepository: IIdentityRepository<string, JwtSecurityToken>
     {
-        //private readonly IConfiguration _configuration;
         private readonly string _jwtSecret;
+        private readonly double _identifierLifetime;
         private readonly IUserRepository _userRepository;
         private readonly JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
         private readonly byte[] key;
@@ -23,10 +23,11 @@ namespace Identity.MVC.Repository
         {
             _userRepository = userRepository;
             _jwtSecret = configuration.GetSection("TokenSecret").Value;
+            _identifierLifetime = double.Parse(configuration.GetSection("IdentifierExpiryTime").Value);
             key = Encoding.ASCII.GetBytes(_jwtSecret);
         }
 
-        public string GenerateIdentifier(User entity)
+        public async Task<string> GenerateIdentifier(User entity)
         {
             var tokenDescriptor = new SecurityTokenDescriptor()
             {
@@ -36,24 +37,19 @@ namespace Identity.MVC.Repository
                     SecurityAlgorithms.HmacSha256Signature)
 
             };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var token = await Task.Run(() => tokenHandler.CreateToken(tokenDescriptor));
             return tokenHandler.WriteToken(token);
         }
 
-        public string GenerateIdentifier(int id)
-        {
-            return GenerateIdentifier(new User() { Id = id });
-        }
 
-        public User? IdentifierEntity(string validatedIdentifier)
+        public User? IdentifierEntity(JwtSecurityToken clearIdentifier)
         {
-            var jwtToken = tokenHandler.ReadJwtToken(validatedIdentifier);
-            var userId = int.Parse(jwtToken.Claims.First(x => x.Type == "id").Value);
+            var userId = int.Parse(clearIdentifier.Claims.First(x => x.Type == "id").Value);
             var user = _userRepository.GetById(userId);
             return user;
         }
 
-        public bool TryParseIdentifier(string token)
+        public bool TryParseIdentifier(string token, out JwtSecurityToken clearIdentifier)
         {
             try
             {
@@ -65,17 +61,29 @@ namespace Identity.MVC.Repository
                     ValidateAudience = false,
                     ClockSkew = TimeSpan.Zero
                 }, out var validatedToken);
+                clearIdentifier = (JwtSecurityToken)validatedToken;
                 return true;
             }
             catch
             {
+                clearIdentifier = new JwtSecurityToken();
                 return false;
             }
         }
 
-        public void SetIdentifierToResponse(string token, HttpResponse response)
+        public void SetIdentifierToResponse(string identifier, HttpResponse response)
         {
-            response.Cookies.Append("token", token);
+            response
+                .Cookies
+                .Append("token", identifier, new CookieOptions()
+            {
+                Expires = DateTime.Now.AddMinutes(_identifierLifetime)
+            });
+        }
+
+        public void ReviveIdentifier(string identifier, HttpResponse response)
+        {
+            SetIdentifierToResponse(identifier, response);
         }
 
         public string? GetIdentifierFromRequest(HttpRequest request)
@@ -83,7 +91,7 @@ namespace Identity.MVC.Repository
             return request.Cookies["token"];
         }
 
-        public void RemoveIdentifierFromResponse(HttpResponse response)
+        public void RemoveIdentifierFromResponse(string identifier, HttpResponse response)
         {
             response
                 .Cookies

@@ -1,4 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
 using Identity.MVC.Data;
+using Identity.MVC.Models;
 using Identity.MVC.Repository;
 using Identity.MVC.Repository.IRepository;
 using Microsoft.EntityFrameworkCore;
@@ -11,11 +13,17 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultDatabase"));
 });
-builder.Services.Configure<JWTSettings>(options =>
-    builder.Configuration.GetSection("JWTSettings").Bind(options));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IIdentityRepository, JWTBasedIdentityRepository>();
+// 1:
+ builder.Services.AddScoped<IIdentityRepository<string, JwtSecurityToken>, JWTBasedIdentityRepository>();
+// 2:
+//builder.Services.AddScoped<IIdentityRepository<string, User>, CookieBasedIdentityRepository>();
+builder.Services.AddSingleton<ICacheRepository<User>, SessionCacheRepository>();
 builder.Services.AddAutoMapper(typeof(MapperConfig));
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("CacheDatabase");
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
